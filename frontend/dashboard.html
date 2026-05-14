@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — FreelanceHub</title>
+
+  <link rel="stylesheet" href="style.css"/>
+
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+</head>
+
+<body>
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">Freelance<span>Hub</span></div>
+
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item active">📊 Dashboard</a>
+
+        <a href="clients.html" class="nav-item">
+          👥 Clients
+        </a>
+
+        <a href="projects.html" class="nav-item">
+          📁 Projects
+        </a>
+
+        <!-- FIXED HERE -->
+        <a href="invoice.html" class="nav-item">
+          🧾 Invoices
+        </a>
+      </nav>
+
+      <button class="btn-logout" onclick="logout()">
+        Logout
+      </button>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <p>Overview of your freelance business</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+
+        <div class="stat-card">
+          <div class="stat-icon">💰</div>
+          <div class="stat-label">Total Earned</div>
+          <div class="stat-val" id="statEarnings">...</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-label">Pending Amount</div>
+          <div class="stat-val" id="statPending">...</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-label">Total Clients</div>
+          <div class="stat-val" id="statClients">...</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">📁</div>
+          <div class="stat-label">Total Projects</div>
+          <div class="stat-val" id="statProjects">...</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-icon">🧾</div>
+          <div class="stat-label">Total Invoices</div>
+          <div class="stat-val" id="statInvoices">...</div>
+        </div>
+
+      </div>
+
+      <!-- Recent Invoices -->
+      <div class="section-card">
+
+        <h2>Recent Invoices</h2>
+
+        <table class="data-table">
+
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Project</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+
+          <tbody id="recentBody">
+            <tr>
+              <td colspan="5">Loading...</td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+
+  <script>
+
+    checkAuth();
+
+    async function loadDashboard() {
+
+      const stats = await fetchData("http://localhost:5000/api/stats");
+
+      document.getElementById("statEarnings").textContent =
+        "₹" + stats.totalEarnings.toLocaleString("en-IN");
+
+      document.getElementById("statPending").textContent =
+        "₹" + stats.pending.toLocaleString("en-IN");
+
+      document.getElementById("statClients").textContent =
+        stats.totalClients;
+
+      document.getElementById("statProjects").textContent =
+        stats.totalProjects;
+
+      document.getElementById("statInvoices").textContent =
+        stats.totalInvoices;
+
+      const invoices =
+        await fetchData("http://localhost:5000/api/invoices");
+
+      const clients =
+        await fetchData("http://localhost:5000/api/clients");
+
+      const tbody = document.getElementById("recentBody");
+
+      tbody.innerHTML = invoices.slice(-5).reverse().map(inv => {
+
+        const client =
+          clients.find(c => c.id === inv.clientId);
+
+        return `
+          <tr>
+            <td>${inv.invoiceNumber}</td>
+
+            <td>${inv.projectTitle}</td>
+
+            <td>
+              ₹${inv.total.toLocaleString("en-IN")}
+            </td>
+
+            <td>
+              <span class="badge ${inv.status === 'Paid'
+                ? 'badge-green'
+                : 'badge-yellow'}">
+                ${inv.status}
+              </span>
+            </td>
+
+            <td>${inv.date}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    loadDashboard();
+
+  </script>
+
+</body>
+</html>

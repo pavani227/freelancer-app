@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invoices — FreelanceHub</title>
+
+  <link rel="stylesheet" href="style.css"/>
+
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+</head>
+
+<body>
+
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+
+      <div class="sidebar-logo">
+        Freelance<span>Hub</span>
+      </div>
+
+      <nav class="sidebar-nav">
+
+        <a href="dashboard.html" class="nav-item">
+          📊 Dashboard
+        </a>
+
+        <a href="clients.html" class="nav-item">
+          👥 Clients
+        </a>
+
+        <a href="projects.html" class="nav-item">
+          📁 Projects
+        </a>
+
+        <!-- FIXED -->
+        <a href="invoice.html" class="nav-item active">
+          🧾 Invoices
+        </a>
+
+      </nav>
+
+      <button class="btn-logout" onclick="logout()">
+        Logout
+      </button>
+
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+
+      <div class="page-header">
+        <h1>Tax Invoices</h1>
+        <p>Generate GST-compliant tax invoices</p>
+      </div>
+
+      <!-- Create Invoice -->
+      <div class="section-card">
+
+        <h2>Create New Invoice</h2>
+
+        <div class="form-row">
+
+          <div class="form-group">
+            <label>Select Client</label>
+
+            <select id="invClient">
+              <option value="">Select Client</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Project Title</label>
+
+            <input
+              type="text"
+              id="invProject"
+              placeholder="Project Name"
+            />
+          </div>
+
+        </div>
+
+        <div class="form-row">
+
+          <div class="form-group">
+            <label>GST Rate (%)</label>
+
+            <select id="invGst">
+              <option value="0">0%</option>
+              <option value="5">5%</option>
+              <option value="12">12%</option>
+              <option value="18" selected>18%</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Date</label>
+
+            <input type="date" id="invDate"/>
+          </div>
+
+        </div>
+
+        <div class="form-row">
+
+          <div class="form-group">
+            <label>Description</label>
+
+            <input
+              type="text"
+              id="itemDesc"
+              placeholder="Service Description"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Amount</label>
+
+            <input
+              type="number"
+              id="itemAmount"
+              placeholder="Amount"
+            />
+          </div>
+
+        </div>
+
+        <button class="btn-primary" onclick="createInvoice()">
+          Generate Invoice
+        </button>
+
+        <div id="invMsg" class="form-msg"></div>
+
+      </div>
+
+      <!-- Invoice Table -->
+      <div class="section-card">
+
+        <h2>All Invoices</h2>
+
+        <table class="data-table">
+
+          <thead>
+            <tr>
+              <th>Invoice #</th>
+              <th>Project</th>
+              <th>Total</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody id="invoicesBody">
+            <tr>
+              <td colspan="4">
+                Loading...
+              </td>
+            </tr>
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <script src="app.js"></script>
+
+  <script>
+
+    checkAuth();
+
+    let allClients = [];
+
+    // INIT
+    async function init() {
+
+      allClients =
+        await fetchData(
+          "http://localhost:5000/api/clients"
+        );
+
+      const sel =
+        document.getElementById("invClient");
+
+      allClients.forEach(client => {
+
+        sel.innerHTML += `
+          <option value="${client.id}">
+            ${client.name}
+          </option>
+        `;
+      });
+
+      document.getElementById("invDate").value =
+        new Date().toISOString().split("T")[0];
+
+      loadInvoices();
+    }
+
+    // CREATE INVOICE
+    async function createInvoice() {
+
+      const clientId =
+        document.getElementById("invClient").value;
+
+      const projectTitle =
+        document.getElementById("invProject").value;
+
+      const gstRate =
+        document.getElementById("invGst").value;
+
+      const date =
+        document.getElementById("invDate").value;
+
+      const description =
+        document.getElementById("itemDesc").value;
+
+      const amount =
+        parseFloat(
+          document.getElementById("itemAmount").value
+        );
+
+      const msg =
+        document.getElementById("invMsg");
+
+      if (
+        !clientId ||
+        !projectTitle ||
+        !description ||
+        !amount
+      ) {
+        msg.textContent =
+          "Please fill all fields.";
+
+        return;
+      }
+
+      const invoiceData = {
+
+        clientId,
+
+        projectTitle,
+
+        items: [
+          {
+            description,
+            quantity: 1,
+            rate: amount
+          }
+        ],
+
+        gstRate,
+
+        date,
+
+        status: "Unpaid",
+
+        freelancer: {
+          name: "Admin"
+        }
+      };
+
+      const res = await postData(
+        "http://localhost:5000/api/invoices",
+        invoiceData
+      );
+
+      msg.textContent =
+        `Invoice ${res.invoiceNumber} created successfully`;
+
+      loadInvoices();
+    }
+
+    // LOAD INVOICES
+    async function loadInvoices() {
+
+      const invoices =
+        await fetchData(
+          "http://localhost:5000/api/invoices"
+        );
+
+      const tbody =
+        document.getElementById("invoicesBody");
+
+      if (invoices.length === 0) {
+
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4">
+              No invoices found
+            </td>
+          </tr>
+        `;
+
+        return;
+      }
+
+      tbody.innerHTML =
+        invoices.map(inv => `
+          <tr>
+
+            <td>${inv.invoiceNumber}</td>
+
+            <td>${inv.projectTitle}</td>
+
+            <td>
+              ₹${inv.total.toLocaleString("en-IN")}
+            </td>
+
+            <td>${inv.status}</td>
+
+          </tr>
+        `).join("");
+    }
+
+    init();
+
+  </script>
+
+</body>
+</html>

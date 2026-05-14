@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Projects — FreelanceHub</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="sidebar-logo">Freelance<span>Hub</span></div>
+      <nav class="sidebar-nav">
+        <a href="dashboard.html" class="nav-item">📊 Dashboard</a>
+        <a href="clients.html"   class="nav-item">👥 Clients</a>
+        <a href="projects.html"  class="nav-item active">📁 Projects</a>
+        <a href="invoices.html"  class="nav-item">🧾 Invoices</a>
+      </nav>
+      <button class="btn-logout" onclick="logout()">Logout</button>
+    </aside>
+    <main class="main">
+      <div class="page-header">
+        <h1>Projects</h1>
+        <p>Track all your freelance projects</p>
+      </div>
+
+      <div class="section-card">
+        <h2>Add New Project</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Client</label>
+            <select id="pClient"><option value="">Select Client</option></select>
+          </div>
+          <div class="form-group"><label>Project Title</label><input type="text" id="pTitle" placeholder="e.g. Landing Page Design"/></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Status</label>
+            <select id="pStatus">
+              <option>In Progress</option>
+              <option>Completed</option>
+              <option>On Hold</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Amount (₹)</label><input type="number" id="pAmount" placeholder="25000"/></div>
+          <div class="form-group"><label>Date</label><input type="date" id="pDate"/></div>
+        </div>
+        <button class="btn-primary" onclick="addProject()">Add Project</button>
+        <div id="projMsg" class="form-msg"></div>
+      </div>
+
+      <div class="section-card">
+        <h2>All Projects</h2>
+        <table class="data-table">
+          <thead><tr><th>Title</th><th>Client</th><th>Amount</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+          <tbody id="projectsBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    checkAuth();
+    let allClients = [];
+    async function init() {
+      allClients = await fetchData("/api/clients");
+      const sel = document.getElementById("pClient");
+      allClients.forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+      document.getElementById("pDate").value = new Date().toISOString().split("T")[0];
+      loadProjects();
+    }
+    async function loadProjects() {
+      const projects = await fetchData("/api/projects");
+      document.getElementById("projectsBody").innerHTML = projects.length === 0
+        ? `<tr><td colspan="6" style="text-align:center;color:var(--muted)">No projects yet</td></tr>`
+        : projects.map(p => {
+            const client = allClients.find(c => c.id === p.clientId);
+            return `<tr>
+              <td><strong>${p.title}</strong></td>
+              <td>${client ? client.name : "Unknown"}</td>
+              <td>₹${parseFloat(p.amount).toLocaleString("en-IN")}</td>
+              <td><span class="badge ${p.status === 'Completed' ? 'badge-green' : p.status === 'In Progress' ? 'badge-blue' : 'badge-yellow'}">${p.status}</span></td>
+              <td>${p.date}</td>
+              <td><button class="btn-del" onclick="deleteProject(${p.id})">Delete</button></td>
+            </tr>`;
+          }).join("");
+    }
+    async function addProject() {
+      const clientId = document.getElementById("pClient").value;
+      const title    = document.getElementById("pTitle").value.trim();
+      const status   = document.getElementById("pStatus").value;
+      const amount   = document.getElementById("pAmount").value;
+      const date     = document.getElementById("pDate").value;
+      const msg = document.getElementById("projMsg");
+      if (!clientId || !title || !amount) { msg.textContent = "All fields required."; msg.className = "form-msg error"; return; }
+      await postData("/api/projects", { clientId, title, status, amount, date });
+      msg.textContent = "✅ Project added!"; msg.className = "form-msg success";
+      loadProjects();
+    }
+    async function deleteProject(id) {
+      if (!confirm("Delete this project?")) return;
+      await fetch(`/api/projects/${id}`, { method: "DELETE" });
+      loadProjects();
+    }
+    init();
+  </script>
+</body>
+</html>
