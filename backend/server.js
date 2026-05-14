@@ -5,21 +5,30 @@ const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
 
+const Client = require("./models/client");
+const Project = require("./models/project");
+const Invoice = require("./models/invoice");
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ---------------- MONGODB CONNECTION ----------------
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
 .then(() => {
   console.log("✅ MongoDB Connected");
 })
 .catch((err) => {
+  console.log("❌ MongoDB Error:");
   console.log(err);
 });
 
 // ---------------- MIDDLEWARE ----------------
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // ---------------- SERVE FRONTEND ----------------
 app.use(express.static(path.join(__dirname, "../frontend")));
@@ -49,88 +58,188 @@ app.post("/api/login", (req, res) => {
 });
 
 // ---------------- DASHBOARD STATS ----------------
-app.get("/api/stats", (req, res) => {
+app.get("/api/stats", async (req, res) => {
 
-  res.json({
-    totalIncome: 50000,
-    totalExpenses: 20000,
-    netProfit: 30000,
-    estimatedTax: 5000,
-    totalClients: 2,
-    totalProjects: 2,
-    totalInvoices: 1,
-    totalEarnings: 50000,
-    pending: 10000
-  });
+  try {
+
+    const clients = await Client.find();
+    const projects = await Project.find();
+    const invoices = await Invoice.find();
+
+    let totalIncome = 0;
+
+    invoices.forEach(inv => {
+      totalIncome += inv.total || 0;
+    });
+
+    res.json({
+      totalIncome,
+      totalExpenses: 20000,
+      netProfit: totalIncome - 20000,
+      estimatedTax: 5000,
+      totalClients: clients.length,
+      totalProjects: projects.length,
+      totalInvoices: invoices.length,
+      totalEarnings: totalIncome,
+      pending: 10000
+    });
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 // ---------------- CLIENTS API ----------------
-app.get("/api/clients", (req, res) => {
 
-  res.json([
-    {
-      id: 1,
-      name: "Rahul Enterprises",
-      email: "rahul@example.com",
-      phone: "9876543210",
-      address: "Bangalore"
-    },
-    {
-      id: 2,
-      name: "Priya Tech",
-      email: "priya@example.com",
-      phone: "9876501234",
-      address: "Hyderabad"
-    }
-  ]);
+// CREATE CLIENT
+app.post("/api/clients", async (req, res) => {
+
+  try {
+
+    console.log(req.body);
+
+    const client = new Client(req.body);
+
+    await client.save();
+
+    res.json({
+      success: true,
+      client
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// GET CLIENTS
+app.get("/api/clients", async (req, res) => {
+
+  try {
+
+    const clients = await Client.find();
+
+    res.json(clients);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 // ---------------- PROJECTS API ----------------
-app.get("/api/projects", (req, res) => {
 
-  res.json([
-    {
-      id: 1,
-      title: "E-Commerce Website",
-      status: "Completed",
-      amount: 35000,
-      date: "2026-05-01"
-    },
-    {
-      id: 2,
-      title: "Portfolio Design",
-      status: "In Progress",
-      amount: 15000,
-      date: "2026-05-10"
-    }
-  ]);
+// CREATE PROJECT
+app.post("/api/projects", async (req, res) => {
+
+  try {
+
+    console.log(req.body);
+
+    const project = new Project(req.body);
+
+    await project.save();
+
+    res.json({
+      success: true,
+      project
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
+});
+
+// GET PROJECTS
+app.get("/api/projects", async (req, res) => {
+
+  try {
+
+    const projects = await Project.find();
+
+    res.json(projects);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
 });
 
 // ---------------- INVOICES API ----------------
-app.get("/api/invoices", (req, res) => {
 
-  res.json([
-    {
-      id: 1,
-      invoiceNumber: "INV-001",
-      projectTitle: "E-Commerce Website",
-      total: 35000,
-      status: "Paid",
-      date: "2026-05-14"
-    }
-  ]);
+// CREATE INVOICE
+app.post("/api/invoices", async (req, res) => {
+
+  try {
+
+    console.log(req.body);
+
+    const invoice = new Invoice({
+      invoiceNumber:
+        "INV-" + Math.floor(Math.random() * 10000),
+      ...req.body
+    });
+
+    await invoice.save();
+
+    res.json({
+      success: true,
+      invoice
+    });
+
+  } catch (err) {
+
+    console.log(err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
 });
 
-// ---------------- CREATE INVOICE ----------------
-app.post("/api/invoices", (req, res) => {
+// GET INVOICES
+app.get("/api/invoices", async (req, res) => {
 
-  const newInvoice = {
-    id: Date.now(),
-    invoiceNumber: "INV-" + Math.floor(Math.random() * 1000),
-    ...req.body
-  };
+  try {
 
-  res.json(newInvoice);
+    const invoices = await Invoice.find();
+
+    res.json(invoices);
+
+  } catch (err) {
+
+    res.status(500).json({
+      error: err.message
+    });
+  }
+});
+
+// ---------------- DEFAULT ROUTE ----------------
+app.get("/", (req, res) => {
+
+  res.sendFile(
+    path.join(__dirname, "../frontend/index.html")
+  );
 });
 
 // ---------------- START SERVER ----------------
